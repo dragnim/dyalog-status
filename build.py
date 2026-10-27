@@ -75,10 +75,16 @@ def cert_info(url: str):
     return ("ok", "SSL valid", tip)
 
 
+RETRY_DELAY_S = 3  # pause before retrying an error, so a brief blip has time to clear
+
+
 def check_with_retry(url: str) -> str:
-    # Retry once so a single blip doesn't show as an outage
+    # A slow response is a real result, so only errors are retried
     first = check(url)
-    return first if first == "up" else check(url)
+    if first in ("up", "degraded"):
+        return first
+    time.sleep(RETRY_DELAY_S)
+    return check(url)
 
 
 def warn(msg: str):
@@ -181,7 +187,7 @@ def main():
 <body>
 <a class="logo" href="https://www.dyalog.com" title="Dyalog" target="_blank" rel="noopener">Dyalog</a>
 <h1>Service status</h1>
-<div class="banner degraded stale" hidden></div>
+<div class="banner degraded stale" role="alert" hidden></div>
 <p class="checked" data-checked="{iso}">Last checked {now}.</p>
 <ul class="services">{rows}
 </ul>

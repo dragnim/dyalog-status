@@ -20,7 +20,8 @@ the same permissions, and paste it into the job's `Authorization` header as `Bea
 
 ## How statuses are decided
 
-Each service's URL is requested, with one retry before anything other than Operational is shown.
+Each service's URL is requested. If that gives an error, it waits 3 seconds and tries once more before
+showing Maintenance or Outage. Slow responses aren't retried.
 
 | Result | Status |
 | --- | --- |
