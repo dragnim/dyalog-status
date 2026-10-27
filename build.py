@@ -142,7 +142,9 @@ def main():
             for d, paras in updates
         )
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    stamp = datetime.now(timezone.utc)
+    now = stamp.strftime("%Y-%m-%d %H:%M UTC")
+    iso = stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
     css = (ROOT / "style.css").read_text()
 
     page = f"""<!DOCTYPE html>
@@ -160,11 +162,25 @@ def main():
 <a class="logo" href="https://www.dyalog.com" title="Dyalog" target="_blank" rel="noopener">Dyalog</a>
 <h1>Service status</h1>
 <div class="banner {banner}">{banner_text}</div>
-<p class="checked">Last checked {now}.</p>
+<div class="banner degraded stale" hidden></div>
+<p class="checked" data-checked="{iso}">Last checked {now}.</p>
 <ul class="services">{rows}
 </ul>
 {log}
 <footer><p>&copy; Dyalog Ltd</p></footer>
+<script>
+// Warn visitors if the checks have stopped updating this page
+(function () {{
+	var p = document.querySelector(".checked");
+	var age = (Date.now() - Date.parse(p.dataset.checked)) / 60000;
+	if (age > 30) {{
+		var when = age < 120 ? Math.round(age) + " minutes" : Math.round(age / 60) + " hours";
+		var s = document.querySelector(".stale");
+		s.textContent = "This page may be out of date. The last check was " + when + " ago.";
+		s.hidden = false;
+	}}
+}})();
+</script>
 </body>
 </html>
 """
