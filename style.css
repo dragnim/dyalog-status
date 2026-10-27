@@ -53,7 +53,7 @@ p { margin: 0 0 1rem; }
 .services li + li { border-top: 1px solid var(--border); }
 .service-name { font-weight: 600; color: var(--heading); }
 .service-host { display: block; font-size: 0.8125rem; color: var(--text-muted); }
-a.service-host { display: inline-block; color: var(--link); }
+a.service-host { width: fit-content; color: var(--link); }
 .state { display: inline-flex; align-items: center; gap: 0.5rem; flex-shrink: 0;
 	font-size: 0.875rem; font-weight: 600; color: var(--c); background: var(--c-soft);
 	border-radius: 999px; padding: 0.25rem 0.75rem; }
