@@ -26,25 +26,47 @@ VALID_STATUS = {"auto", *LABELS}
 ROOT = Path(__file__).parent
 
 
-def check(url: str) -> str:
+def check(url: str) -> dict:
+    """Request the URL once. Returns the status, response time and a short reason."""
     start = time.monotonic()
     req = urllib.request.Request(url, headers={"User-Agent": UA})
+    body = b""
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:
             code = res.status
-            body = b""
     except urllib.error.HTTPError as e:
         code = e.code
         try:
             body = e.read(65536)
         except Exception:
-            body = b""
+            pass
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, ssl.SSLError):
+            return {"status": "down", "secs": None, "detail": "Certificate error"}
+        if isinstance(e.reason, (TimeoutError, socket.timeout)):
+            return {"status": "down", "secs": None, "detail": f"No response within {TIMEOUT_S} s"}
+        return {"status": "down", "secs": None, "detail": "Couldn't connect"}
+    except (TimeoutError, socket.timeout):
+        return {"status": "down", "secs": None, "detail": f"No response within {TIMEOUT_S} s"}
     except Exception:
-        return "down"
+        return {"status": "down", "secs": None, "detail": "Couldn't connect"}
+    secs = time.monotonic() - start
     if code >= 400:
         # An error page that says it's down for maintenance counts as Maintenance
-        return "maint" if b"maintenance" in body.lower() else "down"
-    return "degraded" if time.monotonic() - start > SLOW_S else "up"
+        if b"maintenance" in body.lower():
+            return {"status": "maint", "secs": secs, "detail": "Maintenance page"}
+        if code >= 500:
+            reason = f"Server error ({code})"
+        elif code == 403:
+            reason = "Access blocked (403)"
+        elif code == 404:
+            reason = "Not found (404)"
+        else:
+            reason = f"Error {code}"
+        return {"status": "down", "secs": secs, "detail": reason}
+    if secs > SLOW_S:
+        return {"status": "degraded", "secs": secs, "detail": f"Slow response \u00b7 {secs:.1f} s"}
+    return {"status": "up", "secs": secs, "detail": f"{secs:.1f} s"}
 
 
 def cert_info(url: str):
@@ -78,10 +100,10 @@ def cert_info(url: str):
 RETRY_DELAY_S = 3  # pause before retrying an error, so a brief blip has time to clear
 
 
-def check_with_retry(url: str) -> str:
+def check_with_retry(url: str) -> dict:
     # A slow response is a real result, so only errors are retried
     first = check(url)
-    if first in ("up", "degraded"):
+    if first["status"] in ("up", "degraded"):
         return first
     time.sleep(RETRY_DELAY_S)
     return check(url)
@@ -136,10 +158,15 @@ def main():
         results = dict(zip([s["id"] for s in to_check], pool.map(check_with_retry, [s["url"] for s in to_check])))
         certs = dict(zip([s["id"] for s in services], pool.map(cert_info, [s["url"] for s in services])))
 
-    statuses = []
+    statuses, details = [], []
     for s in services:
         st = s.get("status", "auto")
-        statuses.append(results[s["id"]] if st == "auto" else st)
+        if st == "auto":
+            statuses.append(results[s["id"]]["status"])
+            details.append(results[s["id"]]["detail"])
+        else:
+            statuses.append(st)
+            details.append("Set manually")
 
     e = html.escape
     def host(s):
@@ -153,9 +180,20 @@ def main():
     rows = "".join(
         f'\n\t<li class="{st}">\n\t\t<span><span class="service-name">{e(s["name"])}</span>'
         f'{host(s)}</span>\n'
-        f'\t\t<span class="state">{LABELS[st]}</span>\n\t</li>'
-        for s, st in zip(services, statuses)
+        f'\t\t<span class="status-col"><span class="state">{LABELS[st]}</span>'
+        f'<span class="detail">{e(d)}</span></span>\n\t</li>'
+        for s, st, d in zip(services, statuses, details)
     )
+
+    key = f"""<h2>What the statuses mean</h2>
+<ul class="key">
+	<li class="up"><span class="state">{LABELS["up"]}</span><span>Responded normally within {SLOW_S} seconds.</span></li>
+	<li class="degraded"><span class="state">{LABELS["degraded"]}</span><span>Working, but took longer than {SLOW_S} seconds to respond.</span></li>
+	<li class="maint"><span class="state">{LABELS["maint"]}</span><span>The site is showing a maintenance page.</span></li>
+	<li class="down"><span class="state">{LABELS["down"]}</span><span>The site returned an error, or didn't respond within {TIMEOUT_S} seconds. The reason is shown under the status.</span></li>
+</ul>
+<p class="key-note">Response times are measured from GitHub's servers, so they include the time to reach each site from there.
+A site may load faster for you.</p>"""
 
     updates = parse_updates((ROOT / "updates.md").read_text())
     log = ""
@@ -191,6 +229,7 @@ def main():
 <p class="checked" data-checked="{iso}">Last checked {now}.</p>
 <ul class="services">{rows}
 </ul>
+{key}
 {log}
 <footer><p>&copy; Dyalog Ltd</p></footer>
 <script>
@@ -212,9 +251,9 @@ def main():
     out = ROOT / "_site"
     out.mkdir(exist_ok=True)
     (out / "index.html").write_text(page)
-    for s, st in zip(services, statuses):
+    for s, st, d in zip(services, statuses, details):
         c = certs.get(s["id"])
-        print(f"{s['id']:<12} {LABELS[st]:<12} {c[1] if c else 'no certificate info'}")
+        print(f"{s['id']:<12} {LABELS[st]:<12} {d:<28} {c[1] if c else 'no certificate info'}")
 
 
 if __name__ == "__main__":
