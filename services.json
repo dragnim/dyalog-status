@@ -11,6 +11,8 @@
     { "id": "aplwiki",     "name": "APL Wiki",            "host": "aplwiki.com",            "url": "https://www.aplwiki.com/",        "status": "auto" },
     { "id": "forums",      "name": "Forums",              "host": "forums.dyalog.com",      "url": "https://forums.dyalog.com/",      "status": "auto" },
     { "id": "help",        "name": "Online help",         "host": "help.dyalog.com",        "url": "https://help.dyalog.com/",        "status": "auto" },
-    { "id": "tv",          "name": "Dyalog TV",           "host": "dyalog.tv",              "url": "https://dyalog.tv/",              "status": "auto" }
+    { "id": "tv",          "name": "Dyalog TV",           "host": "dyalog.tv",              "url": "https://dyalog.tv/",              "status": "auto" },
+    { "id": "apt",         "name": "APT repository",      "host": "packages.dyalog.com",    "url": "https://packages.dyalog.com/",    "status": "auto" },
+    { "id": "tatin",       "name": "Tatin",               "host": "tatin.dev",              "url": "https://tatin.dev/",              "status": "auto" }
   ]
 }

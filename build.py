@@ -6,15 +6,19 @@ Run by the GitHub Actions workflow. No dependencies beyond Python 3.
 import html
 import json
 import re
+import socket
+import ssl
 import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 TIMEOUT_S = 10   # no response after this = Outage
 SLOW_S = 3       # slower than this = Degraded
+SSL_WARN_DAYS = 14  # certificate flag turns amber inside this many days
 UA = "DyalogStatus/1.0 (+https://status.dyalog.com)"
 
 LABELS = {"up": "Operational", "degraded": "Degraded", "down": "Outage", "maint": "Maintenance"}
@@ -42,6 +46,34 @@ def check(url: str) -> str:
     return "degraded" if time.monotonic() - start > SLOW_S else "up"
 
 
+def cert_info(url: str):
+    """Return (kind, text, tooltip) for the HTTPS certificate, or None if unknown.
+
+    This is shown as a separate flag and never changes the service status.
+    """
+    u = urlparse(url)
+    if u.scheme != "https":
+        return None
+    host = u.hostname
+    ctx = ssl.create_default_context()
+    try:
+        with socket.create_connection((host, u.port or 443), timeout=TIMEOUT_S) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host) as tls:
+                not_after = tls.getpeercert()["notAfter"]
+    except ssl.SSLCertVerificationError as e:
+        if "expired" in str(e.verify_message).lower():
+            return ("bad", "SSL expired", "The certificate has expired")
+        return ("bad", "SSL invalid", f"Certificate problem: {e.verify_message}")
+    except Exception:
+        return None  # couldn't connect; the status check covers that
+    expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(not_after), timezone.utc)
+    days = (expires - datetime.now(timezone.utc)).days
+    tip = f"Certificate expires {expires:%Y-%m-%d} ({days} days)"
+    if days < SSL_WARN_DAYS:
+        return ("warn", f"SSL expires in {days} day{'s' if days != 1 else ''}", tip)
+    return ("ok", "SSL valid", tip)
+
+
 def check_with_retry(url: str) -> str:
     # Retry once so a single blip doesn't show as an outage
     first = check(url)
@@ -64,6 +96,8 @@ def main():
     to_check = [s for s in services if s.get("url") and s.get("status", "auto") == "auto"]
     with ThreadPoolExecutor(max_workers=10) as pool:
         results = dict(zip([s["id"] for s in to_check], pool.map(check_with_retry, [s["url"] for s in to_check])))
+        with_url = [s for s in services if s.get("url")]
+        certs = dict(zip([s["id"] for s in with_url], pool.map(cert_info, [s["url"] for s in with_url])))
 
     statuses = []
     for s in services:
@@ -82,8 +116,14 @@ def main():
     e = html.escape
     def host(s):
         if s.get("url"):
-            return f'<a class="service-host" href="{e(s["url"])}">{e(s["host"])}</a>'
-        return f'<span class="service-host">{e(s["host"])}</span>'
+            h = f'<a class="service-host" href="{e(s["url"])}">{e(s["host"])}</a>'
+        else:
+            h = f'<span class="service-host">{e(s["host"])}</span>'
+        c = certs.get(s["id"])
+        if c:
+            kind, text, tip = c
+            h += f'<span class="ssl {kind}" title="{e(tip)}">{e(text)}</span>'
+        return f'<span class="service-meta">{h}</span>'
 
     rows = "".join(
         f'\n\t<li class="{st}">\n\t\t<span><span class="service-name">{e(s["name"])}</span>'
@@ -132,6 +172,7 @@ def main():
     out.mkdir(exist_ok=True)
     (out / "index.html").write_text(page)
     print(banner_text, results)
+    print({k: v[1] if v else None for k, v in certs.items()})
 
 
 if __name__ == "__main__":
