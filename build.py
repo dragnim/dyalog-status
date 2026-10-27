@@ -116,7 +116,7 @@ def main():
     e = html.escape
     def host(s):
         if s.get("url"):
-            h = f'<a class="service-host" href="{e(s["url"])}">{e(s["host"])}</a>'
+            h = f'<a class="service-host" href="{e(s["url"])}" target="_blank" rel="noopener">{e(s["host"])}</a>'
         else:
             h = f'<span class="service-host">{e(s["host"])}</span>'
         c = certs.get(s["id"])
@@ -157,7 +157,7 @@ def main():
 	</style>
 </head>
 <body>
-<a class="logo" href="https://www.dyalog.com" title="Dyalog">Dyalog</a>
+<a class="logo" href="https://www.dyalog.com" title="Dyalog" target="_blank" rel="noopener">Dyalog</a>
 <h1>Service status</h1>
 <div class="banner {banner}">{banner_text}</div>
 <p class="checked">Last checked {now}.</p>
