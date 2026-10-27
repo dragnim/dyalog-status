@@ -161,7 +161,6 @@ def main():
 <body>
 <a class="logo" href="https://www.dyalog.com" title="Dyalog" target="_blank" rel="noopener">Dyalog</a>
 <h1>Service status</h1>
-<div class="banner {banner}">{banner_text}</div>
 <div class="banner degraded stale" hidden></div>
 <p class="checked" data-checked="{iso}">Last checked {now}.</p>
 <ul class="services">{rows}
