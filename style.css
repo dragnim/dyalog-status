@@ -2,7 +2,7 @@
 	--bg: #ffffff; --surface: #f8f9fb; --border: #e4e7eb;
 	--text: #232222; --text-muted: #57606a; --heading: #2a3244;
 	--accent: #ff6a13; --accent-soft: #fff1e8;
-	--link: #ca4e00; --link-hover: #526cfe;
+	--link: #b84700; --link-hover: #4058e0;
 	--up: #1a7f37; --up-soft: #e9f6ec;
 	--degraded: #9a6700; --degraded-soft: #fff6dc;
 	--down: #cf222e; --down-soft: #ffebe9;
@@ -76,7 +76,6 @@ a.service-host { color: var(--link); }
 .date { display: block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
 	text-transform: uppercase; color: var(--text-muted); font-variant-numeric: tabular-nums;
 	margin-bottom: 0.375rem; }
-.muted { color: var(--text-muted); }
 a { color: var(--link); text-decoration: none; border-bottom: 1px solid transparent;
 	transition: color 0.15s ease, border-color 0.15s ease; }
 a:hover, a:focus { color: var(--link-hover); border-bottom-color: var(--link-hover); }

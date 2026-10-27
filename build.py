@@ -22,6 +22,7 @@ SSL_WARN_DAYS = 14  # certificate flag turns amber inside this many days
 UA = "DyalogStatus/1.0 (+https://status.dyalog.com)"
 
 LABELS = {"up": "Operational", "degraded": "Degraded", "down": "Outage", "maint": "Maintenance"}
+VALID_STATUS = {"auto", *LABELS}
 ROOT = Path(__file__).parent
 
 
@@ -80,6 +81,37 @@ def check_with_retry(url: str) -> str:
     return first if first == "up" else check(url)
 
 
+def warn(msg: str):
+    # Shows as a warning annotation on the GitHub Actions run
+    print(f"::warning::{msg}")
+
+
+def validate_services(services):
+    """Fix up mistakes in services.json so one typo can't stop the page updating."""
+    seen = set()
+    clean = []
+    for i, s in enumerate(services, 1):
+        label = s.get("id") or s.get("name") or f"entry {i}"
+        if not s.get("id") or not s.get("name") or not s.get("host"):
+            warn(f"services.json: {label} is missing id, name or host, so it was left off the page")
+            continue
+        if s["id"] in seen:
+            warn(f"services.json: duplicate id '{s['id']}', so the second one was left off the page")
+            continue
+        seen.add(s["id"])
+        status = s.get("status", "auto")
+        if status not in VALID_STATUS:
+            warn(f"services.json: {label} has status '{status}', which isn't one of "
+                 f"{', '.join(sorted(VALID_STATUS))}. Using the automatic check instead.")
+            s["status"] = "auto"
+        url = s.get("url", "")
+        if urlparse(url).scheme not in ("http", "https"):
+            warn(f"services.json: {label} has no valid http(s) url, so it was left off the page")
+            continue
+        clean.append(s)
+    return clean
+
+
 def parse_updates(text: str):
     text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     updates = []
@@ -92,33 +124,20 @@ def parse_updates(text: str):
 
 
 def main():
-    services = json.loads((ROOT / "services.json").read_text())["services"]
-    to_check = [s for s in services if s.get("url") and s.get("status", "auto") == "auto"]
+    services = validate_services(json.loads((ROOT / "services.json").read_text())["services"])
+    to_check = [s for s in services if s.get("status", "auto") == "auto"]
     with ThreadPoolExecutor(max_workers=10) as pool:
         results = dict(zip([s["id"] for s in to_check], pool.map(check_with_retry, [s["url"] for s in to_check])))
-        with_url = [s for s in services if s.get("url")]
-        certs = dict(zip([s["id"] for s in with_url], pool.map(cert_info, [s["url"] for s in with_url])))
+        certs = dict(zip([s["id"] for s in services], pool.map(cert_info, [s["url"] for s in services])))
 
     statuses = []
     for s in services:
         st = s.get("status", "auto")
-        statuses.append(results.get(s["id"], "up") if st == "auto" else st)
-
-    if "down" in statuses:
-        banner, banner_text = "down", "Some services are currently unavailable"
-    elif "degraded" in statuses:
-        banner, banner_text = "degraded", "Some services are experiencing problems"
-    elif "maint" in statuses:
-        banner, banner_text = "maint", "Some services are undergoing maintenance"
-    else:
-        banner, banner_text = "up", "All services are operational"
+        statuses.append(results[s["id"]] if st == "auto" else st)
 
     e = html.escape
     def host(s):
-        if s.get("url"):
-            h = f'<a class="service-host" href="{e(s["url"])}" target="_blank" rel="noopener">{e(s["host"])}</a>'
-        else:
-            h = f'<span class="service-host">{e(s["host"])}</span>'
+        h = f'<a class="service-host" href="{e(s["url"])}" target="_blank" rel="noopener">{e(s["host"])}</a>'
         c = certs.get(s["id"])
         if c:
             kind, text, tip = c
@@ -154,6 +173,7 @@ def main():
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta http-equiv="refresh" content="300">
 	<title>Dyalog | Service status</title>
+	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 247 247'%3E%3Cpath fill='%23FF6A13' d='M0 0L90.9989 0.0251617C107.5 0 124.322 1.83359 140.012 7.49824C170.926 18.0164 197.448 41.034 211.767 70.4078C225.488 98.0927 227.777 131.163 218.075 160.497C208.787 189.073 188.372 213.686 162.382 228.686C144.27 239.35 123.457 244.882 102.537 246.025H0V208C0 208 66.5525 208.434 99.822 208.234C122.578 207.902 145.082 198.554 161.211 182.491C175.876 168.13 185.152 148.303 186.216 127.759C187.427 107.906 180.907 87.8139 168.597 72.2029C152.375 51.2597 126.318 38.4809 99.8486 38.1751C79.2082 38.1618 58.6404 38 38 38V67H0V0Z'/%3E%3C/svg%3E">
 	<style>
 {css}
 	</style>
@@ -186,8 +206,9 @@ def main():
     out = ROOT / "_site"
     out.mkdir(exist_ok=True)
     (out / "index.html").write_text(page)
-    print(banner_text, results)
-    print({k: v[1] if v else None for k, v in certs.items()})
+    for s, st in zip(services, statuses):
+        c = certs.get(s["id"])
+        print(f"{s['id']:<12} {LABELS[st]:<12} {c[1] if c else 'no certificate info'}")
 
 
 if __name__ == "__main__":

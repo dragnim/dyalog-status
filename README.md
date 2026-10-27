@@ -10,7 +10,7 @@ Each update usually appears 1 to 2 minutes after the check starts.
 
 - **cron-job.org** triggers the workflow every 10 minutes through GitHub's API. This is the main schedule,
   because GitHub's own scheduled runs are unreliable.
-- **GitHub's built-in schedule** (`cron` in `.github/workflows/status.yml`) stays in place as a backup.
+- **GitHub's built-in schedule** (`cron` in `.github/workflows/status.yml`) runs hourly as a backup.
 - **Any commit to `main`** also triggers a run, so edits to the files below appear straight away.
 
 The cron-job.org job uses a fine-grained GitHub token, stored only in cron-job.org. It is limited to
@@ -57,6 +57,12 @@ Edit `updates.md` on GitHub and commit. Add the new update at the top:
     Your message here.
 
 Leave a blank line between paragraphs. The page republishes within a minute or two of the commit.
+
+## Mistakes in services.json
+
+The build checks `services.json` before running. A mistyped `status` falls back to the automatic check,
+and an entry with a duplicate `id` or missing `id`, `name`, `host` or `url` is left off the page. Either way
+the page keeps publishing, and the run shows a warning in the Actions tab explaining what was wrong.
 
 ## Overriding a service
 
