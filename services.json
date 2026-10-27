@@ -1,0 +1,14 @@
+{
+  "_help": "status: auto = use the automatic check. Or set up, degraded, down or maint to override it. Services with no url are never checked and default to up.",
+  "services": [
+    { "id": "www",         "name": "Main website",        "host": "www.dyalog.com",         "url": "https://www.dyalog.com/",         "status": "auto" },
+    { "id": "docs",        "name": "Documentation",       "host": "docs.dyalog.com",        "url": "https://docs.dyalog.com/",        "status": "auto" },
+    { "id": "forge",       "name": "APL Forge",           "host": "forge.dyalog.com",       "url": "https://forge.dyalog.com/",       "status": "auto" },
+    { "id": "challenge",   "name": "APL Challenge",       "host": "challenge.dyalog.com",   "url": "https://challenge.dyalog.com/",   "status": "auto" },
+    { "id": "usermeeting", "name": "Dyalog User Meeting", "host": "usermeeting.dyalog.com", "url": "https://usermeeting.dyalog.com/", "status": "auto" },
+    { "id": "dyna",        "name": "DYNA",                "host": "dyna.dyalog.com",        "url": "https://dyna.dyalog.com/",        "status": "auto" },
+    { "id": "tryapl",      "name": "TryAPL",              "host": "tryapl.org",             "url": "https://tryapl.org/",             "status": "auto" },
+    { "id": "aplwiki",     "name": "APL Wiki",            "host": "aplwiki.com",            "url": "https://www.aplwiki.com/",        "status": "auto" },
+    { "id": "support",     "name": "Email support",       "host": "support@dyalog.com",                                               "status": "auto" }
+  ]
+}
