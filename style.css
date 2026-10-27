@@ -52,6 +52,7 @@ p { margin: 0 0 1rem; }
 .services li { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
 	padding: 0.875rem 1.25rem; background: var(--surface); }
 .services li + li { border-top: 1px solid var(--border); }
+.services li.down { background: color-mix(in srgb, var(--down-soft) 55%, var(--surface)); }
 .service-name { font-weight: 600; color: var(--heading); }
 .service-host { display: block; font-size: 0.8125rem; color: var(--text-muted); }
 a.service-host { color: var(--link); }
