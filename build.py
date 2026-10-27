@@ -27,14 +27,18 @@ def check(url: str) -> str:
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:
             code = res.status
+            body = b""
     except urllib.error.HTTPError as e:
         code = e.code
+        try:
+            body = e.read(65536)
+        except Exception:
+            body = b""
     except Exception:
         return "down"
-    if code >= 500:
-        return "down"
     if code >= 400:
-        return "degraded"  # reachable but not right
+        # An error page that says it's down for maintenance counts as Maintenance
+        return "maint" if b"maintenance" in body.lower() else "down"
     return "degraded" if time.monotonic() - start > SLOW_S else "up"
 
 
@@ -76,9 +80,14 @@ def main():
         banner, banner_text = "up", "All services are operational"
 
     e = html.escape
+    def host(s):
+        if s.get("url"):
+            return f'<a class="service-host" href="{e(s["url"])}">{e(s["host"])}</a>'
+        return f'<span class="service-host">{e(s["host"])}</span>'
+
     rows = "".join(
         f'\n\t<li class="{st}">\n\t\t<span><span class="service-name">{e(s["name"])}</span>'
-        f'<span class="service-host">{e(s["host"])}</span></span>\n'
+        f'{host(s)}</span>\n'
         f'\t\t<span class="state">{LABELS[st]}</span>\n\t</li>'
         for s, st in zip(services, statuses)
     )
