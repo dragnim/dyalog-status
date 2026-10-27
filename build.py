@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 TIMEOUT_S = 10   # no response after this = Outage
-SLOW_S = 3       # slower than this = Degraded
+SLOW_S = 5       # slower than this = Degraded
 SSL_WARN_DAYS = 14  # certificate flag turns amber inside this many days
 UA = "DyalogStatus/1.0 (+https://status.dyalog.com)"
 

@@ -25,8 +25,8 @@ showing Maintenance or Outage. Slow responses aren't retried.
 
 | Result | Status |
 | --- | --- |
-| Normal response within 3 seconds | Operational |
-| Normal response, but slower than 3 seconds | Degraded |
+| Normal response within 5 seconds | Operational |
+| Normal response, but slower than 5 seconds | Degraded |
 | Error page (4xx or 5xx) that mentions maintenance | Maintenance |
 | Any other 4xx or 5xx error, or no response within 10 seconds | Outage |
 
