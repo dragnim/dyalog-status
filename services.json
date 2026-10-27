@@ -2,6 +2,7 @@
   "_help": "status: auto = use the automatic check. Or set up, degraded, down or maint to override it.",
   "services": [
     { "id": "www",         "name": "Main website",        "host": "www.dyalog.com",         "url": "https://www.dyalog.com/",         "status": "auto" },
+    { "id": "my",          "name": "My Dyalog",           "host": "my.dyalog.com",          "url": "https://my.dyalog.com/",          "status": "auto" },
     { "id": "docs",        "name": "Documentation",       "host": "docs.dyalog.com",        "url": "https://docs.dyalog.com/",        "status": "auto" },
     { "id": "forge",       "name": "APL Forge",           "host": "forge.dyalog.com",       "url": "https://forge.dyalog.com/",       "status": "auto" },
     { "id": "challenge",   "name": "APL Challenge",       "host": "challenge.dyalog.com",   "url": "https://challenge.dyalog.com/",   "status": "auto" },
