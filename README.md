@@ -20,7 +20,7 @@ In `services.json`, change a service's `status` from `auto` to one of:
 ## Adding a service
 
 Copy a line in `services.json` and change the `id`, `name`, `host` and `url`.
-Leave out `url` for services that can't be checked automatically.
+Every service needs a `url`; only add services that can be checked over the web.
 
 ## Running checks now
 

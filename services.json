@@ -1,5 +1,5 @@
 {
-  "_help": "status: auto = use the automatic check. Or set up, degraded, down or maint to override it. Services with no url are never checked and default to up.",
+  "_help": "status: auto = use the automatic check. Or set up, degraded, down or maint to override it.",
   "services": [
     { "id": "www",         "name": "Main website",        "host": "www.dyalog.com",         "url": "https://www.dyalog.com/",         "status": "auto" },
     { "id": "docs",        "name": "Documentation",       "host": "docs.dyalog.com",        "url": "https://docs.dyalog.com/",        "status": "auto" },
@@ -10,6 +10,7 @@
     { "id": "tryapl",      "name": "TryAPL",              "host": "tryapl.org",             "url": "https://tryapl.org/",             "status": "auto" },
     { "id": "aplwiki",     "name": "APL Wiki",            "host": "aplwiki.com",            "url": "https://www.aplwiki.com/",        "status": "auto" },
     { "id": "forums",      "name": "Forums",              "host": "forums.dyalog.com",      "url": "https://forums.dyalog.com/",      "status": "auto" },
-    { "id": "support",     "name": "Email support",       "host": "support@dyalog.com",                                               "status": "auto" }
+    { "id": "help",        "name": "Online help",         "host": "help.dyalog.com",        "url": "https://help.dyalog.com/",        "status": "auto" },
+    { "id": "tv",          "name": "Dyalog TV",           "host": "dyalog.tv",              "url": "https://dyalog.tv/",              "status": "auto" }
   ]
 }
