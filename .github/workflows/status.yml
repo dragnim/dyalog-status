@@ -2,9 +2,9 @@ name: Status checks
 
 on:
   schedule:
-    # Every 10 minutes. On a private repo with the free plan, change to */30
-    # to stay inside the monthly Actions allowance.
-    - cron: "*/10 * * * *"
+    # Backup only: cron-job.org triggers the main run every 10 minutes.
+    # Hourly, off the top of the hour when GitHub is busiest.
+    - cron: "17 * * * *"
   push:
     branches: [main]   # republish straight away when services or updates change
   workflow_dispatch:   # "Run workflow" button
@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: status
-  cancel-in-progress: true
+  cancel-in-progress: false   # let a running publish finish; the next run waits
 
 jobs:
   build:
@@ -26,12 +26,13 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check services and build page
         run: python3 build.py
 
       - name: Keep schedule alive
+        continue-on-error: true   # never let this stop the page publishing
         # GitHub pauses scheduled workflows after 60 days with no repo activity.
         # Push an empty commit if the last one is more than 50 days old.
         run: |
@@ -43,9 +44,9 @@ jobs:
             git push
           fi
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
