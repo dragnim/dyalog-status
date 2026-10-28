@@ -231,7 +231,7 @@ A site may load faster for you.</p>"""
 </ul>
 {key}
 {log}
-<footer><p>&copy; Dyalog Ltd</p></footer>
+<footer><p>&copy; Dyalog Ltd · <a href="https://github.com/dragnim/dyalog-status" target="_blank" rel="noopener">Source on GitHub</a></p></footer>
 <script>
 // Warn visitors if the checks have stopped updating this page
 (function () {{
