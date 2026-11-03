@@ -29,9 +29,11 @@ showing Maintenance or Outage. Slow responses aren't retried.
 | Normal response, but slower than 5 seconds | Degraded |
 | Error page (4xx or 5xx) that mentions maintenance | Maintenance |
 | Any other 4xx or 5xx error, or no response within 10 seconds | Outage |
+| Cloudflare's bot check blocks the request | Can't check |
 
-Sites behind Cloudflare's bot check can't be seen past that check, so they show as Outage when the
-check blocks them.
+Sites behind Cloudflare's bot check can't be tested, because the check stops automated visitors before they
+reach the site. To fix that, whoever manages the site's Cloudflare account can add a rule that skips the bot
+check for requests whose user agent contains `DyalogStatus`.
 
 ## The SSL badge
 

@@ -21,7 +21,9 @@ SLOW_S = 5       # slower than this = Degraded
 SSL_WARN_DAYS = 14  # certificate flag turns amber inside this many days
 UA = "DyalogStatus/1.0 (+https://status.dyalog.com)"
 
-LABELS = {"up": "Operational", "degraded": "Degraded", "down": "Outage", "maint": "Maintenance"}
+LABELS = {"up": "Operational", "degraded": "Degraded", "down": "Outage", "maint": "Maintenance",
+          "unknown": "Can't check"}
+BOT_CHECK = {"status": "unknown", "secs": None, "detail": "Blocked by Cloudflare bot check"}
 VALID_STATUS = {"auto", *LABELS}
 ROOT = Path(__file__).parent
 
@@ -34,8 +36,13 @@ def check(url: str) -> dict:
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:
             code = res.status
+            if res.headers.get("cf-mitigated") == "challenge":
+                return BOT_CHECK
     except urllib.error.HTTPError as e:
         code = e.code
+        # Cloudflare is asking "are you human?", so we can't see whether the site itself is up
+        if e.headers.get("cf-mitigated") == "challenge":
+            return BOT_CHECK
         try:
             body = e.read(65536)
         except Exception:
@@ -101,9 +108,9 @@ RETRY_DELAY_S = 3  # pause before retrying an error, so a brief blip has time to
 
 
 def check_with_retry(url: str) -> dict:
-    # A slow response is a real result, so only errors are retried
+    # Slow responses and bot checks won't change on a retry, so only errors are retried
     first = check(url)
-    if first["status"] in ("up", "degraded"):
+    if first["status"] in ("up", "degraded", "unknown"):
         return first
     time.sleep(RETRY_DELAY_S)
     return check(url)
@@ -191,6 +198,7 @@ def main():
 	<li class="degraded"><span class="state">{LABELS["degraded"]}</span><span>Working, but took longer than {SLOW_S} seconds to respond.</span></li>
 	<li class="maint"><span class="state">{LABELS["maint"]}</span><span>The site is showing a maintenance page.</span></li>
 	<li class="down"><span class="state">{LABELS["down"]}</span><span>The site returned an error, or didn't respond within {TIMEOUT_S} seconds. The reason is shown under the status.</span></li>
+	<li class="unknown"><span class="state">{LABELS["unknown"]}</span><span>A security check on the site blocks automated visitors, so we can't test it. It may well be working normally.</span></li>
 </ul>
 <p class="key-note">Response times are measured from GitHub's servers, so they include the time to reach each site from there.
 A site may load faster for you.</p>"""
