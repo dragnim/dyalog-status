@@ -28,6 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Restore uptime history
+        uses: actions/cache@v6
+        with:
+          path: history.json
+          key: history-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: history-
+
       - name: Check services and build page
         run: python3 build.py
 
