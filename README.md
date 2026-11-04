@@ -35,6 +35,19 @@ Sites behind Cloudflare's bot check can't be tested, because the check stops aut
 reach the site. To fix that, whoever manages the site's Cloudflare account can add a rule that skips the bot
 check for requests whose user agent contains `DyalogStatus`.
 
+## Uptime history
+
+Each service has a bar for each of the last 90 days (30 on phones), with its uptime percentage for the period.
+
+- **Green:** every check that day passed. **Yellow:** brief outages, above 95% uptime. **Red:** longer outages.
+  **Lavender:** maintenance only. **Grey:** no data, or the site couldn't be checked.
+- Uptime counts Operational and Degraded checks as up and Outage checks as down. Maintenance and
+  Can't check results don't count either way.
+- The counts are kept in `history.json`, which isn't committed. Each run restores it from the Actions cache,
+  adds its results and saves it back. A copy is also published with the page, and is used if the cache is
+  ever lost. If neither can be read, the run stops rather than publishing an empty history over the real one,
+  and the out-of-date notice will appear if that keeps happening.
+
 ## The SSL badge
 
 The badge next to each hostname shows the state of its HTTPS certificate. It is separate from the

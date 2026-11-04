@@ -12,7 +12,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -25,6 +25,11 @@ LABELS = {"up": "Operational", "degraded": "Degraded", "down": "Outage", "maint"
           "unknown": "Can't check"}
 BOT_CHECK = {"status": "unknown", "secs": None, "detail": "Blocked by Cloudflare bot check"}
 VALID_STATUS = {"auto", *LABELS}
+
+HISTORY_DAYS = 90
+HISTORY_FILE = "history.json"
+# Fallback if the Actions cache has lost the history: the copy published with the page
+HISTORY_URL = "https://dragnim.github.io/dyalog-status/history.json"
 ROOT = Path(__file__).parent
 
 
@@ -147,6 +152,65 @@ def validate_services(services):
     return clean
 
 
+def load_history():
+    """Daily check counts per service. Restored from the Actions cache, or the published copy."""
+    local = ROOT / HISTORY_FILE
+    if local.exists():
+        try:
+            return json.loads(local.read_text())
+        except ValueError:
+            warn("history.json from the cache was unreadable, so falling back to the published copy")
+    req = urllib.request.Request(f"{HISTORY_URL}?t={int(time.time())}", headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:
+            return json.loads(res.read())
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return {"days": {}}  # first run: no history yet
+        raise SystemExit(f"Couldn't load the uptime history (HTTP {e.code}), so not publishing over it")
+    except Exception as e:
+        raise SystemExit(f"Couldn't load the uptime history ({e}), so not publishing over it")
+
+
+def record_history(history, services, statuses, today):
+    days = history.setdefault("days", {})
+    day = days.setdefault(today, {})
+    for s, st in zip(services, statuses):
+        counts = day.setdefault(s["id"], {})
+        counts[st] = counts.get(st, 0) + 1
+    for old in sorted(days)[:-HISTORY_DAYS]:
+        del days[old]
+
+
+def day_kind(counts):
+    """Colour for one day's bar, plus its tooltip text."""
+    ok = counts.get("up", 0) + counts.get("degraded", 0)
+    bad = counts.get("down", 0)
+    if ok + bad == 0:
+        if counts.get("maint"):
+            return "maint", "Maintenance"
+        if counts.get("unknown"):
+            return "unknown", "Couldn't be checked"
+        return "none", "No data"
+    pct = 100 * ok / (ok + bad)
+    if bad == 0:
+        return "up", "100% uptime"
+    failed = f"{bad} failed check{'s' if bad != 1 else ''}"
+    return ("partial" if pct >= 95 else "down"), f"{pct:.1f}% uptime \u00b7 {failed}"
+
+
+def uptime_pct(history, sid, dates):
+    ok = bad = 0
+    for d in dates:
+        c = history["days"].get(d, {}).get(sid, {})
+        ok += c.get("up", 0) + c.get("degraded", 0)
+        bad += c.get("down", 0)
+    if ok + bad == 0:
+        return "No data yet"
+    pct = 100 * ok / (ok + bad)
+    return f"{'100' if bad == 0 else f'{pct:.2f}'}% uptime"
+
+
 def parse_updates(text: str):
     text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     updates = []
@@ -175,7 +239,26 @@ def main():
             statuses.append(st)
             details.append("Set manually")
 
+    stamp = datetime.now(timezone.utc)
+    history = load_history()
+    record_history(history, services, statuses, stamp.strftime("%Y-%m-%d"))
+    dates = [(stamp - timedelta(days=n)).strftime("%Y-%m-%d") for n in range(HISTORY_DAYS - 1, -1, -1)]
+
     e = html.escape
+
+    def uptime(s):
+        bars = []
+        for d in dates:
+            kind, tip = day_kind(history["days"].get(d, {}).get(s["id"], {}))
+            label = datetime.strptime(d, "%Y-%m-%d").strftime("%-d %b %Y")
+            bars.append(f'<span class="bar {kind}" title="{label}: {e(tip)}"></span>')
+        long_pct, short_pct = uptime_pct(history, s["id"], dates), uptime_pct(history, s["id"], dates[-30:])
+        return (f'\n\t\t<div class="uptime"><div class="bars" role="img" '
+                f'aria-label="{e(s["name"])}: {long_pct} over the last {HISTORY_DAYS} days">{"".join(bars)}</div>'
+                f'<div class="uptime-legend"><span><span class="long">{HISTORY_DAYS} days ago</span>'
+                f'<span class="short">30 days ago</span></span>'
+                f'<span><span class="long">{long_pct}</span><span class="short">{short_pct}</span></span>'
+                f'<span>Today</span></div></div>')
     def host(s):
         h = f'<a class="service-host" href="{e(s["url"])}" target="_blank" rel="noopener">{e(s["host"])}</a>'
         c = certs.get(s["id"])
@@ -188,7 +271,7 @@ def main():
         f'\n\t<li class="{st}">\n\t\t<span><span class="service-name">{e(s["name"])}</span>'
         f'{host(s)}</span>\n'
         f'\t\t<span class="status-col"><span class="state">{LABELS[st]}</span>'
-        f'<span class="detail">{e(d)}</span></span>\n\t</li>'
+        f'<span class="detail">{e(d)}</span></span>{uptime(s)}\n\t</li>'
         for s, st, d in zip(services, statuses, details)
     )
 
@@ -200,6 +283,9 @@ def main():
 	<li class="down"><span class="state">{LABELS["down"]}</span><span>The site returned an error, or didn't respond within {TIMEOUT_S} seconds. The reason is shown under the status.</span></li>
 	<li class="unknown"><span class="state">{LABELS["unknown"]}</span><span>A security check on the site blocks automated visitors, so we can't test it. It may well be working normally.</span></li>
 </ul>
+<p class="key-note">The bars show each of the last {HISTORY_DAYS} days: green when every check passed,
+yellow for brief outages (above 95% uptime), red for longer outages, and grey when there's no data.
+Hover over a bar for that day's figures.</p>
 <p class="key-note">Response times are measured from GitHub's servers, so they include the time to reach each site from there.
 A site may load faster for you.</p>"""
 
@@ -213,7 +299,6 @@ A site may load faster for you.</p>"""
             for d, paras in updates
         )
 
-    stamp = datetime.now(timezone.utc)
     now = stamp.strftime("%Y-%m-%d %H:%M UTC")
     iso = stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
     css = (ROOT / "style.css").read_text()
@@ -259,6 +344,9 @@ A site may load faster for you.</p>"""
     out = ROOT / "_site"
     out.mkdir(exist_ok=True)
     (out / "index.html").write_text(page)
+    data = json.dumps(history, separators=(",", ":"), sort_keys=True)
+    (ROOT / HISTORY_FILE).write_text(data)   # saved to the Actions cache after the run
+    (out / HISTORY_FILE).write_text(data)    # published with the page as a fallback
     for s, st, d in zip(services, statuses, details):
         c = certs.get(s["id"])
         print(f"{s['id']:<12} {LABELS[st]:<12} {d:<28} {c[1] if c else 'no certificate info'}")
