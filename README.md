@@ -105,6 +105,9 @@ Actions tab > Status checks > Run workflow.
 
 ## Housekeeping
 
+- Each run publishes under its own commit object (created through the API, same files as `main`, not added to
+  any branch). Since GitHub's November 2026 Pages incident, redeploying the same commit reports success without
+  updating the site, and scheduled runs would otherwise all share one commit.
 - GitHub pauses scheduled workflows in public repos after 60 days without a commit. The workflow pushes an
   empty commit when the last one is more than 50 days old, so this shouldn't happen.
 - The repo is public because GitHub Pages and unlimited Actions minutes are only free for public repos.
