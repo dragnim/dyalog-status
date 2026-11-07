@@ -51,18 +51,45 @@ jobs:
             git push
           fi
 
-      - uses: actions/upload-pages-artifact@v5
+      - id: upload
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
-      # Pages names each deployment after the commit. Every scheduled run uses the same commit,
-      # and since GitHub's November 2026 Pages incident, repeat deployments of one commit report
-      # success without updating the site. So give each run its own deployment ID.
+      # Pages names each deployment after the commit, and every scheduled run uses the same commit.
+      # Since GitHub's November 2026 Pages incident, repeat deployments of one commit report success
+      # without updating the site, and actions/deploy-pages always uses the commit as the ID.
+      # So this step deploys through the Pages API directly, with a unique ID for every run.
       - name: Unique deployment ID
         id: version
         run: echo "id=$(echo -n "${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - id: deploy
-        uses: actions/deploy-pages@v5
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/github-script@v9
         env:
-          GITHUB_SHA: ${{ steps.version.outputs.id }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+          BUILD_VERSION: ${{ steps.version.outputs.id }}
+        with:
+          script: |
+            const repo = { owner: context.repo.owner, repo: context.repo.repo };
+            const { data } = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
+              ...repo,
+              artifact_id: Number(process.env.ARTIFACT_ID),
+              pages_build_version: process.env.BUILD_VERSION,
+              oidc_token: await core.getIDToken(),
+            });
+            const id = data.id || data.status_url.split('/').pop();
+            core.info(`Created deployment ${id}`);
+            core.setOutput('page_url', data.page_url);
+            const failed = ['deployment_failed', 'deployment_content_failed', 'deployment_cancelled', 'deployment_lost'];
+            for (let i = 0; i < 36; i++) {   // check every 5 seconds for up to 3 minutes
+              await new Promise(r => setTimeout(r, 5000));
+              const { data: d } = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{id}', { ...repo, id });
+              if (d.status === 'succeed') { core.info('Deployed'); return; }
+              if (failed.includes(d.status)) { core.setFailed(`Pages deployment ended with ${d.status}`); return; }
+              core.info(`Status: ${d.status}`);
+            }
+            // Cancel so a stuck deployment doesn't block the next run
+            await github.request('POST /repos/{owner}/{repo}/pages/deployments/{id}/cancel', { ...repo, id }).catch(() => {});
+            core.setFailed('Timed out waiting for the Pages deployment');
