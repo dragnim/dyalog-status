@@ -55,5 +55,14 @@ jobs:
         with:
           path: _site
 
+      # Pages names each deployment after the commit. Every scheduled run uses the same commit,
+      # and since GitHub's November 2026 Pages incident, repeat deployments of one commit report
+      # success without updating the site. So give each run its own deployment ID.
+      - name: Unique deployment ID
+        id: version
+        run: echo "id=$(echo -n "${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - id: deploy
         uses: actions/deploy-pages@v5
+        env:
+          GITHUB_SHA: ${{ steps.version.outputs.id }}
