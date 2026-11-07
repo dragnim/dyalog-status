@@ -56,32 +56,33 @@ jobs:
         with:
           path: _site
 
-      # Pages names each deployment after the commit, and every scheduled run uses the same commit.
+      # Pages names each deployment after a commit, and every scheduled run uses the same commit.
       # Since GitHub's November 2026 Pages incident, repeat deployments of one commit report success
-      # without updating the site, and actions/deploy-pages always uses the commit as the ID.
-      # So this step deploys through the Pages API directly, with a unique ID for every run.
-      - name: Unique deployment ID
-        id: version
-        run: echo "id=$(echo -n "${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-
+      # without updating the site. The ID must be a real commit, so each run creates its own commit
+      # object (same files as main, not added to any branch) and deploys under that.
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/github-script@v9
         env:
           ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
-          BUILD_VERSION: ${{ steps.version.outputs.id }}
         with:
           script: |
             const repo = { owner: context.repo.owner, repo: context.repo.repo };
-            core.info(`Artifact ${process.env.ARTIFACT_ID}, build version ${process.env.BUILD_VERSION}`);
+            const { data: head } = await github.request('GET /repos/{owner}/{repo}/git/commits/{sha}', { ...repo, sha: context.sha });
+            const { data: commit } = await github.request('POST /repos/{owner}/{repo}/git/commits', {
+              ...repo,
+              message: `Status page deployment, run ${context.runId}-${context.runAttempt}`,
+              tree: head.tree.sha,
+              parents: [context.sha],
+            });
+            core.info(`Artifact ${process.env.ARTIFACT_ID}, deployment commit ${commit.sha}`);
             const { data } = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
               ...repo,
               artifact_id: Number(process.env.ARTIFACT_ID),
-              pages_build_version: process.env.BUILD_VERSION,
+              pages_build_version: commit.sha,
               oidc_token: await core.getIDToken(),
             });
             const id = data.id || data.status_url.split('/').pop();
-            core.info(`Created deployment ${id}`);
             core.setOutput('page_url', data.page_url);
             const failed = ['deployment_failed', 'deployment_content_failed', 'deployment_cancelled', 'deployment_lost'];
             for (let i = 0; i < 36; i++) {   // check every 5 seconds for up to 3 minutes
