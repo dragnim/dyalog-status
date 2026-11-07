@@ -73,6 +73,7 @@ jobs:
         with:
           script: |
             const repo = { owner: context.repo.owner, repo: context.repo.repo };
+            core.info(`Artifact ${process.env.ARTIFACT_ID}, build version ${process.env.BUILD_VERSION}`);
             const { data } = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
               ...repo,
               artifact_id: Number(process.env.ARTIFACT_ID),
