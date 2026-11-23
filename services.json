@@ -9,6 +9,7 @@
     { "id": "usermeeting", "name": "Dyalog User Meeting", "host": "usermeeting.dyalog.com", "url": "https://usermeeting.dyalog.com/", "status": "auto" },
     { "id": "dyna",        "name": "DYNA",                "host": "dyna.dyalog.com",        "url": "https://dyna.dyalog.com/",        "status": "auto" },
     { "id": "tryapl",      "name": "TryAPL",              "host": "tryapl.org",             "url": "https://tryapl.org/",             "status": "auto" },
+    { "id": "aplquest",    "name": "APL Quest",           "host": "apl.quest",              "url": "https://apl.quest/",              "status": "auto" },
     { "id": "aplwiki",     "name": "APL Wiki",            "host": "aplwiki.com",            "url": "https://www.aplwiki.com/",        "status": "auto" },
     { "id": "apltrust",    "name": "The APL Trust",       "host": "theapltrust.us",         "url": "https://theapltrust.us/",         "status": "auto" },
     { "id": "forums",      "name": "Forums",              "host": "forums.dyalog.com",      "url": "https://forums.dyalog.com/",      "status": "auto" },
